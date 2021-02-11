@@ -84,6 +84,7 @@
 #pragma newdecls required
 
 #define PLUGIN_VERSION	"v2.3.0"
+#define DEBUG 1
 
 //Define the wait time after round before changing to the next map in each game mode
 #define WAIT_TIME_BEFORE_SWITCH_COOP			5.0
@@ -1010,7 +1011,10 @@ public void OnPluginStart() {
 	AutoExecConfig(true, "acs");
 	
 	//Hook the game events
-	HookEvent("round_end", Event_RoundEnd);
+	HookEvent("round_end", Event_RoundEnd,EventHookMode_PostNoCopy);
+//	HookEvent("map_transition", Event_RoundEnd,EventHookMode_PostNoCopy); no
+//	HookEvent("mission_lost", Event_RoundEnd,EventHookMode_PostNoCopy); yes
+//	HookEvent("finale_vehicle_leaving", Event_RoundEnd,EventHookMode_PostNoCopy); no
 	HookEvent("finale_win", Event_FinaleWin);
 	HookEvent("scavenge_match_finished", Event_ScavengeMapFinished);
 	HookEvent("player_disconnect", Event_PlayerDisconnect);
@@ -1254,10 +1258,13 @@ public void OnMapEnd() {
 
 //Event fired when the Round Ends
 public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroadcast) {
-	// PrintToChatAll("\x03[ACS]\x04 Event_RoundEnd");
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 Event_RoundEnd g_iRoundEndCounter:%d",g_iRoundEndCounter);
+	#endif
+	//Counter for every game	
+	g_iRoundEndCounter++;
 	//Check to see if on a finale map, if so change to the next campaign after two rounds
 	if(g_iGameMode == GAMEMODE_VERSUS && OnFinaleOrScavengeMap() == true) {
-		g_iRoundEndCounter++;
 		
 		if(g_iRoundEndCounter >= 4)	//This event must be fired on the fourth time Round End occurs.
 			CheckMapForChange();	//This is because it fires twice during each round end for
@@ -1266,8 +1273,11 @@ public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroa
 	//If in Coop and on a finale, check to see if the surviors have lost the max amount of times
 	else if(g_iGameMode == GAMEMODE_COOP && OnFinaleOrScavengeMap() == true &&
 			g_hCVar_MaxFinaleFailures.IntValue > 0 && g_bFinaleWon == false &&
-			++g_iCoopFinaleFailureCount >= g_hCVar_MaxFinaleFailures.IntValue)
-	{
+			++g_iCoopFinaleFailureCount >= g_hCVar_MaxFinaleFailures.IntValue && g_iRoundEndCounter<2)
+	{	
+		#if DEBUG
+		PrintToServer("\x03[ACS]\x04 Coop and Finale and Finale Win and maxfailure>0 and Failures>maxfailure");
+		#endif
 		CheckMapForChange();
 	}
 	
@@ -1276,7 +1286,9 @@ public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroa
 
 //Event fired when a finale is won
 public Action Event_FinaleWin(Handle hEvent, const char[] strName, bool bDontBroadcast) {
-	// PrintToChatAll("\x03[ACS]\x04 Event_FinaleWin");
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 Event_FinaleWin");
+	#endif
 	g_bFinaleWon = true;	//This is used so that the finale does not switch twice if this event
 							//happens to land on a max failure count as well as this
 	
@@ -1391,6 +1403,9 @@ public Action Timer_CheckEmptyServer(Handle timer, any param) {
 
 //Check to see if the current map is a finale, and if so, switch to the next campaign
 void CheckMapForChange() {
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 CheckMapForChange()");
+	#endif
 	char strCurrentMap[LEN_MAP_FILENAME];
 	GetCurrentMap(strCurrentMap,sizeof(strCurrentMap));					//Get the current map from the game
 
@@ -1399,6 +1414,9 @@ void CheckMapForChange() {
 	char localizedName[LEN_LOCALIZED_NAME];
 	for(int cycleIndex = 0; cycleIndex < ACS_GetMissionCount(g_iGameMode); cycleIndex++)	{
 		ACS_GetLastMapName(g_iGameMode, cycleIndex, mapName, sizeof(mapName));
+		#if DEBUG
+		PrintToServer("\x03[ACS]\x04 strCurrentMap:%s, LastMap:%s",strCurrentMap,mapName);
+		#endif	
 		if(StrEqual(strCurrentMap, mapName, false)) {
 			for (int client = 1; client <= MaxClients; client++) {
 				if (IsClientInGame(client)) {
@@ -1427,11 +1445,15 @@ void CheckMapForChange() {
 					return;
 				}
 				else
+				{
+					#if DEBUG
+					PrintToServer("\x03[ACS]\x04 Error: %s is an invalid map name, attempting normal map rotation.", mapName);
+					#endif
 					LogError("Error: %s is an invalid map name, attempting normal map rotation.", mapName);
+				}
 			}
 			
-			//If no map was chosen in the vote, then go with the automatic map rotation
-			
+			//If no map was chosen in the vote, then go with the automatic map rotation			
 			if(cycleIndex >= ACS_GetCycledMissionCount(g_iGameMode) - 1)	//Check to see if it reaches/exceed the end of official map list
 				cycleIndex = 0;					//If so, start the array over by setting to -1 + 1 = 0
 			else
@@ -1450,8 +1472,12 @@ void CheckMapForChange() {
 				CreateChangeMapTimer(mapName);
 			}
 			else
+			{
+				#if DEBUG
+				PrintToServer("\x03[ACS]\x04 Error: %s is an invalid map name, unable to switch map.", mapName);
+				#endif
 				LogError("Error: %s is an invalid map name, unable to switch map.", mapName);
-			
+			}
 			return;
 		}
 	}
@@ -2064,6 +2090,9 @@ void SetTheCurrentVoteWinner() {
 
 //Check if the current map is the last in the campaign if not in the Scavenge game mode
 bool OnFinaleOrScavengeMap() {
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 OnFinaleOrScavengeMap()");
+	#endif
 	if(g_iGameMode == GAMEMODE_SCAVENGE)
 		return true;
 	
@@ -2078,6 +2107,10 @@ bool OnFinaleOrScavengeMap() {
 	if (g_iGameMode == LMM_GAMEMODE_COOP) {
 		for (int i=0; i<GetArraySize(g_hStr_MyCoopFinales); i++) {
 			g_hStr_MyCoopFinales.GetString(i, lastMap, sizeof(lastMap));
+			#if DEBUG
+			PrintToServer("\x03[ACS]\x04 Check if the current map is in the custom finale list");
+			PrintToServer("\x03[ACS]\x04 Current Map:%s, Last Map:%s",strCurrentMap,lastMap);
+			#endif
 			if(StrEqual(strCurrentMap, lastMap, false))
 				return true;
 		}
@@ -2094,6 +2127,8 @@ bool OnFinaleOrScavengeMap() {
 	//Run through all the maps, if the current map is a finale map, return true
 	for(int cycleIndex = 0; cycleIndex < ACS_GetMissionCount(g_iGameMode); cycleIndex++) {
 		ACS_GetLastMapName(g_iGameMode, cycleIndex, lastMap, sizeof(lastMap));
+			PrintToServer("\x03[ACS]\x04 Run through all the maps, if the current map is a finale map, return true");
+			PrintToServer("\x03[ACS]\x04 Current Map:%s, Last Map:%s",strCurrentMap,lastMap);
 		if(StrEqual(strCurrentMap, lastMap, false))
 			return true;
 	}
