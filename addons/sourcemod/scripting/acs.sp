@@ -84,6 +84,7 @@
 #pragma newdecls required
 
 #define PLUGIN_VERSION	"v2.3.0"
+#define DEBUG 1
 
 //Define the wait time after round before changing to the next map in each game mode
 #define WAIT_TIME_BEFORE_SWITCH_COOP			5.0
@@ -1254,7 +1255,9 @@ public void OnMapEnd() {
 
 //Event fired when the Round Ends
 public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroadcast) {
-	// PrintToChatAll("\x03[ACS]\x04 Event_RoundEnd");
+	#if DEBUG
+		PrintToChatAll("\x03[ACS]\x04 Event_RoundEnd");
+	#endif
 	//Check to see if on a finale map, if so change to the next campaign after two rounds
 	if(g_iGameMode == GAMEMODE_VERSUS && OnFinaleOrScavengeMap() == true) {
 		g_iRoundEndCounter++;
@@ -1268,6 +1271,9 @@ public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroa
 			g_hCVar_MaxFinaleFailures.IntValue > 0 && g_bFinaleWon == false &&
 			++g_iCoopFinaleFailureCount >= g_hCVar_MaxFinaleFailures.IntValue)
 	{
+		#if DEBUG
+			PrintToChatAll("\x03[ACS]\x04 Coop and Finale and Finale Win and cvarmaxfailure>0 and Failures>cvarmaxfailure");
+		#endif
 		CheckMapForChange();
 	}
 	
@@ -1276,7 +1282,9 @@ public Action Event_RoundEnd(Handle hEvent, const char[] strName, bool bDontBroa
 
 //Event fired when a finale is won
 public Action Event_FinaleWin(Handle hEvent, const char[] strName, bool bDontBroadcast) {
-	// PrintToChatAll("\x03[ACS]\x04 Event_FinaleWin");
+	#if DEBUG
+			PrintToChatAll("\x03[ACS]\x04 Event_FinaleWin");
+	#endif
 	g_bFinaleWon = true;	//This is used so that the finale does not switch twice if this event
 							//happens to land on a max failure count as well as this
 	
@@ -1391,6 +1399,11 @@ public Action Timer_CheckEmptyServer(Handle timer, any param) {
 
 //Check to see if the current map is a finale, and if so, switch to the next campaign
 void CheckMapForChange() {
+
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 CheckMapForChange()");
+	#endif
+	
 	char strCurrentMap[LEN_MAP_FILENAME];
 	GetCurrentMap(strCurrentMap,sizeof(strCurrentMap));					//Get the current map from the game
 
@@ -1399,6 +1412,11 @@ void CheckMapForChange() {
 	char localizedName[LEN_LOCALIZED_NAME];
 	for(int cycleIndex = 0; cycleIndex < ACS_GetMissionCount(g_iGameMode); cycleIndex++)	{
 		ACS_GetLastMapName(g_iGameMode, cycleIndex, mapName, sizeof(mapName));
+		
+		#if DEBUG
+			PrintToServer("\x03[ACS]\x04 strCurrentMap:%s, LastMap:%s",strCurrentMap,mapName);
+		#endif	
+		
 		if(StrEqual(strCurrentMap, mapName, false)) {
 			for (int client = 1; client <= MaxClients; client++) {
 				if (IsClientInGame(client)) {
@@ -1427,7 +1445,12 @@ void CheckMapForChange() {
 					return;
 				}
 				else
+				{
+					#if DEBUG
+						PrintToServer("\x03[ACS]\x04 Error: %s is an invalid map name, attempting normal map rotation.", mapName);
+					#endif	
 					LogError("Error: %s is an invalid map name, attempting normal map rotation.", mapName);
+				}
 			}
 			
 			//If no map was chosen in the vote, then go with the automatic map rotation
@@ -1450,7 +1473,13 @@ void CheckMapForChange() {
 				CreateChangeMapTimer(mapName);
 			}
 			else
+			{
+				#if DEBUG
+					PrintToServer("\x03[ACS]\x04 Error: %s is an invalid map name, unable to switch map.", mapName);
+				#endif	
 				LogError("Error: %s is an invalid map name, unable to switch map.", mapName);
+			}
+				
 			
 			return;
 		}
@@ -1459,6 +1488,12 @@ void CheckMapForChange() {
 
 //Change to the next scavenge map
 void ChangeScavengeMap() {
+
+	#if DEBUG
+	PrintToServer("\x03[ACS]\x04 OnFinaleOrScavengeMap()");
+	#endif
+
+
 	char mapName[LEN_MAP_FILENAME];
 	char colorizedname[LEN_LOCALIZED_NAME];
 	char localizedName[LEN_LOCALIZED_NAME];
@@ -2076,8 +2111,14 @@ bool OnFinaleOrScavengeMap() {
 	// Check if the current map is in the custom finale list
 	char lastMap[LEN_MAP_FILENAME];
 	if (g_iGameMode == LMM_GAMEMODE_COOP) {
+		#if DEBUG
+			PrintToServer("\x03[ACS]\x04 Check if the current map is in the custom finale list");
+		#endif
 		for (int i=0; i<GetArraySize(g_hStr_MyCoopFinales); i++) {
 			g_hStr_MyCoopFinales.GetString(i, lastMap, sizeof(lastMap));
+			#if DEBUG
+				PrintToServer("\x03[ACS]\x04 Current Map:%s, Last Map:%s",strCurrentMap,lastMap);
+			#endif
 			if(StrEqual(strCurrentMap, lastMap, false))
 				return true;
 		}
@@ -2092,8 +2133,15 @@ bool OnFinaleOrScavengeMap() {
 
 	// SDKCall failed due to possible signature change, fallback to our classic method
 	//Run through all the maps, if the current map is a finale map, return true
+	#if DEBUG
+		PrintToServer("\x03[ACS]\x04 Run through all the maps, if the current map is a finale map, return true");
+	#endif
 	for(int cycleIndex = 0; cycleIndex < ACS_GetMissionCount(g_iGameMode); cycleIndex++) {
 		ACS_GetLastMapName(g_iGameMode, cycleIndex, lastMap, sizeof(lastMap));
+		
+		#if DEBUG
+			PrintToServer("\x03[ACS]\x04 Current Map:%s, Last Map:%s",strCurrentMap,lastMap);
+		#endif			
 		if(StrEqual(strCurrentMap, lastMap, false))
 			return true;
 	}
