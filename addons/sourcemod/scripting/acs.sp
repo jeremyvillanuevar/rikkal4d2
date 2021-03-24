@@ -125,6 +125,12 @@ int g_iWinningMapIndices[MAXPLAYERS + 1];				//Winning map/campaigns' indices
 int g_iWinningMapIndices_Len;
 int g_iWinningMapVotes;									//Winning map/campaign's number of votes, 0 = no one voted yet
 
+
+float g_fWaitTimeBeforeSwitchMapinCoop;
+float g_fWaitTimeBeforeSwitchMapinVersus;
+float g_fWaitTimeBeforeSwitchMapinScavenge;
+float g_fWaitTimeBeforeSwitchMapinSurvival;
+
 //Console Variables (CVars)
 ConVar g_hCVar_VotingEnabled;			//Tells if the voting system is on
 ConVar g_hCVar_VoteWinnerSoundEnabled;	//Sound plays when vote winner changes
@@ -899,10 +905,10 @@ public int ChampVoteHandler(Menu menu, MenuAction action, int param1, int param2
 void CreateChangeMapTimer(const char[] mapName) {
 	float delay = 5.0;
 	switch (g_iGameMode) {
-		case LMM_GAMEMODE_COOP: {delay=WAIT_TIME_BEFORE_SWITCH_COOP;}
-		case LMM_GAMEMODE_VERSUS: {delay=WAIT_TIME_BEFORE_SWITCH_VERSUS;}
-		case LMM_GAMEMODE_SCAVENGE: {delay=WAIT_TIME_BEFORE_SWITCH_SCAVENGE;}
-		case LMM_GAMEMODE_SURVIVAL: {delay=WAIT_TIME_BEFORE_SWITCH_SURVIVAL;}
+		case LMM_GAMEMODE_COOP: {delay=g_fWaitTimeBeforeSwitchMapinCoop;}
+		case LMM_GAMEMODE_VERSUS: {delay=g_fWaitTimeBeforeSwitchMapinVersus;}
+		case LMM_GAMEMODE_SCAVENGE: {delay=g_fWaitTimeBeforeSwitchMapinScavenge;}
+		case LMM_GAMEMODE_SURVIVAL: {delay=g_fWaitTimeBeforeSwitchMapinSurvival;}
 	}
 	
 	DataPack dp;
@@ -997,6 +1003,13 @@ public void OnPluginStart() {
 	g_hCVar_ChMapBroadcastInterval =  CreateConVar("acs_chmap_broadcast_interval", "180.0", "Controls the frequency of the \"!chmap\" advertisement, in second.");	
 	g_hCVar_PreventEmptyServer =  CreateConVar("acs_prevent_empty_server", "1", "If enabled, the server automatically switch to the first available official map when no one is playing a 3-rd map [0 = DISABLED, 1 = ENABLED]", _, true, 0.0, true, 1.0);	
 	
+	//New CVars	
+	g_hCVar_WaitTimeBeforeSwitchMapinCoop = CreateConVar("acs_waittimebeforeswitchmapincoop", "5.0", "Automatic change the map in this gamemode until this number of seconds elapsed (PS: Too long game retires to main menu).", 0, true, 5, true, 300);
+	g_hCVar_WaitTimeBeforeSwitchMapinVersus = CreateConVar("acs_waittimebeforeswitchmapinversus", "5.0", "Automatic change the map in this gamemode until this number of seconds elapsed (PS: Too long game retires to main menu).", 0, true, 5, true, 300);
+	g_hCVar_WaitTimeBeforeSwitchMapinScavenge = CreateConVar("acs_waittimebeforeswitchmapinscavenge", "9.0", "Automatic change the map in this gamemode until this number of seconds elapsed (PS: Too long game retires to main menu).", 0, true, 5, true, 300);
+	g_hCVar_WaitTimeBeforeSwitchMapinSurvival = CreateConVar("acs_waittimebeforeswitchmapinsurvival", "5.0", "Automatic change the map in this gamemode until this number of seconds elapsed (PS: Too long game retires to main menu).", 0, true, 5, true, 300);
+	
+	
 	//Hook console variable changes
 	HookConVarChange(g_hCVar_VotingEnabled, CVarChange_Voting);
 	HookConVarChange(g_hCVar_VoteWinnerSoundEnabled, CVarChange_NewVoteWinnerSound);
@@ -1007,6 +1020,13 @@ public void OnPluginStart() {
 	HookConVarChange(g_hCVar_MaxFinaleFailures, CVarChange_MaxFinaleFailures);
 	HookConVarChange(g_hCVar_ChMapBroadcastInterval, CVarChange_ChMapBroadcastInterval);
 	HookConVarChange(g_hCVar_PreventEmptyServer, CVarChange_PreventEmptyServer);
+	
+	
+	HookConVarChange(g_hCVar_WaitTimeBeforeSwitchMapinCoop, CVarChange_WaitTimeBeforeSwitch);
+	HookConVarChange(g_hCVar_WaitTimeBeforeSwitchMapinVersus, CVarChange_WaitTimeBeforeSwitch);
+	HookConVarChange(g_hCVar_WaitTimeBeforeSwitchMapinScavenge, CVarChange_WaitTimeBeforeSwitch);
+	HookConVarChange(g_hCVar_WaitTimeBeforeSwitchMapinSurvival, CVarChange_WaitTimeBeforeSwitch);
+	
 	
 	AutoExecConfig(true, "acs");
 	
@@ -1169,6 +1189,20 @@ public void CVarChange_VotingAdDelayTime(Handle hCVar, const char[] strOldValue,
 		PrintToServer("[ACS] ConVar changed: Voting advertisement delay time changed to 0.1");
 		PrintToChatAll("[ACS] ConVar changed: Voting advertisement delay time changed to 0.1");
 	}
+}
+
+
+
+//Callback function for the cvar for waiting time before switch
+public void CVarChange_WaitTimeBeforeSwitch(Handle hCVar, const char[] strOldValue, const char[] strNewValue) {
+	
+	g_fWaitTimeBeforeSwitchMapinCoop=g_hCVar_WaitTimeBeforeSwitchMapinCoop.FloatValue;
+	g_fWaitTimeBeforeSwitchMapinVersus=g_hCVar_WaitTimeBeforeSwitchMapinVersus.FloatValue;
+	g_fWaitTimeBeforeSwitchMapinScavenge=g_hCVar_WaitTimeBeforeSwitchMapinScavenge.FloatValue;
+	g_fWaitTimeBeforeSwitchMapinSurvival=g_hCVar_WaitTimeBeforeSwitchMapinSurvival.FloatValue;
+		
+	PrintToServer("[ACS] ConVar changed: Waiting time before switch");
+	PrintToChatAll("[ACS] ConVar changed: Waiting time before switch");
 }
 
 //Callback function for how ACS and the next map is advertised to the players during a finale
